@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 app.post('/api/search', async (req, res) => {
-  const { query, url } = req.body;
+  const { query, url, exact } = req.body;
   if (!query || !url) {
     return res.status(400).json({ error: 'Missing query or index URL' });
   }
@@ -22,16 +22,18 @@ app.post('/api/search', async (req, res) => {
     const index = response.data;
 
     // Set up Fuse.js options
+    const isExact = exact === true;
     const fuse = new Fuse(index, {
       keys: ['title', 'description', 'content'],
       includeScore: true,
       includeMatches: true,
-      threshold: 0.4,
-      minMatchCharLength: 2
+      threshold: isExact ? 0.0 : 0.4,
+      ignoreLocation: !isExact,
+      useExtendedSearch: isExact
     });
 
-    // Run search
-    const results = fuse.search(query).slice(0, 10).map(result => {
+    const searchQuery = isExact ? `'${query}` : query;
+    const results = fuse.search(searchQuery).slice(0, 10).map(result => {
       const item = result.item;
       let snippet = item.content.slice(0, 160) + '...';
 
