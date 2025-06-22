@@ -1,0 +1,11 @@
+# render.yaml
+services:
+  - type: web
+    name: search-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node search_api_server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
