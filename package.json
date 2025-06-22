@@ -1,5 +1,5 @@
 {
-  "name": "search-api",
+  "name": "ss-search-server",
   "version": "1.0.0",
   "main": "search_api_server.js",
   "scripts": {
