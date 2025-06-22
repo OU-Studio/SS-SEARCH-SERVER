@@ -25,16 +25,33 @@ app.post('/api/search', async (req, res) => {
     const fuse = new Fuse(index, {
       keys: ['title', 'description', 'content'],
       includeScore: true,
+      includeMatches: true,
       threshold: 0.4,
       minMatchCharLength: 2
     });
 
     // Run search
-    const results = fuse.search(query).slice(0, 10).map(result => ({
-      url: result.item.url,
-      title: result.item.title,
-      snippet: result.item.content.slice(0, 160) + '...'
-    }));
+    const results = fuse.search(query).slice(0, 10).map(result => {
+      const item = result.item;
+      let snippet = item.content.slice(0, 160) + '...';
+
+      if (result.matches) {
+        result.matches.forEach(match => {
+          const value = match.value;
+          match.indices.forEach(([start, end]) => {
+            const matchedText = value.slice(start, end + 1);
+            const highlighted = `<mark>${matchedText}</mark>`;
+            snippet = snippet.replace(matchedText, highlighted);
+          });
+        });
+      }
+
+      return {
+        url: item.url,
+        title: item.title,
+        snippet
+      };
+    });
 
     res.json({ results });
   } catch (error) {
