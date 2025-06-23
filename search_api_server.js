@@ -13,14 +13,20 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Allow all origins for testing
-app.use(cors({
-  origin: '*',
+const corsOptions = {
+  origin: ['https://www.ou.studio, https://www.managemywebsite.com'], // Replace/add other allowed domains if needed
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type']
-}));
+  allowedHeaders: ['Content-Type'],
+  credentials: false
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handles preflight requests
 
 app.use(express.json());
-app.options('*', cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
 
 
 // Search endpoint
