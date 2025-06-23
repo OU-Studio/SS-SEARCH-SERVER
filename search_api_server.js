@@ -7,7 +7,8 @@ const Fuse = require('fuse.js');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// Allow all origins for testing
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 app.post('/api/search', async (req, res) => {
