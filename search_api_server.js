@@ -35,17 +35,27 @@ app.post('/api/search', async (req, res) => {
     const searchQuery = isExact ? `'${query}` : query;
     const results = fuse.search(searchQuery).slice(0, 10).map(result => {
       const item = result.item;
-      let snippet = item.content.slice(0, 160) + '...';
+      let snippet = '';
 
       if (result.matches) {
-        result.matches.forEach(match => {
-          const value = match.value;
-          match.indices.forEach(([start, end]) => {
-            const matchedText = value.slice(start, end + 1);
-            const highlighted = `<mark>${matchedText}</mark>`;
-            snippet = snippet.replace(matchedText, highlighted);
+        const contentMatch = result.matches.find(m => m.key === 'content');
+        if (contentMatch && contentMatch.indices.length > 0) {
+          const [start, end] = contentMatch.indices[0];
+          const contextBefore = Math.max(start - 40, 0);
+          const contextAfter = Math.min(end + 40, item.content.length);
+          let excerpt = item.content.slice(contextBefore, contextAfter);
+
+          contentMatch.indices.forEach(([s, e]) => {
+            const matchedText = item.content.slice(s, e + 1);
+            excerpt = excerpt.replace(matchedText, `<mark>${matchedText}</mark>`);
           });
-        });
+
+          snippet = (contextBefore > 0 ? '...' : '') + excerpt + (contextAfter < item.content.length ? '...' : '');
+        } else {
+          snippet = item.content.slice(0, 160) + '...';
+        }
+      } else {
+        snippet = item.content.slice(0, 160) + '...';
       }
 
       return {
