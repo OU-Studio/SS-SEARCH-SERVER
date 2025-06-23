@@ -32,7 +32,7 @@ app.post('/api/search', async (req, res) => {
     });
 
     const searchQuery = query.toLowerCase();
-    let results = fuse.search(`=${searchQuery}`); // Force exact token match but still ignore case
+    let results = fuse.search(searchQuery);
 
     results.sort((a, b) => {
       const getPriority = matchArray => {
