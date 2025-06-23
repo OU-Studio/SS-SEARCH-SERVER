@@ -1,4 +1,6 @@
 // search_api_server.js
+const verifyDomain = require('./middleware/verifyDomain');
+
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -12,7 +14,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-app.post('/api/search', async (req, res) => {
+app.post('/api/search', verifyDomain, async (req, res) => {
   const { query, url } = req.body;
   if (!query || !url) {
     return res.status(400).json({ error: 'Missing query or index URL' });
