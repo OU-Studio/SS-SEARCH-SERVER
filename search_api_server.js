@@ -193,6 +193,62 @@ app.post('/api/generate-index', async (req, res) => {
   }
 });
 
+app.post('/api/search-lite', async (req, res) => {
+  const { query, domain } = req.body;
+  if (!query || !domain || !domain.startsWith('http')) {
+    return res.status(400).json({ error: 'Missing query or invalid domain' });
+  }
+
+  try {
+    const sitemapUrl = domain + '/sitemap.xml';
+    const sitemapRes = await axios.get(sitemapUrl);
+    const sitemapData = await parseStringPromise(sitemapRes.data);
+
+    const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(url => url.startsWith(domain));
+    const pages = [];
+
+    for (const url of urls) {
+      try {
+        const pageRes = await axios.get(url);
+        const $ = cheerio.load(pageRes.data);
+        const title = $('title').text().trim();
+        const description = $('meta[name="description"]').attr('content') || '';
+        const content = $('main').text().replace(/\s+/g, ' ').trim();
+
+        if (title || description || content) {
+          pages.push({ url, title, description, content });
+        }
+      } catch (_) {}
+    }
+
+    const loweredQuery = query.toLowerCase();
+    const results = pages
+      .map(item => {
+        const matchTitle = item.title.toLowerCase().includes(loweredQuery);
+        const matchDescription = item.description.toLowerCase().includes(loweredQuery);
+        const matchContent = item.content.toLowerCase().includes(loweredQuery);
+        const score = matchTitle ? 0 : matchDescription ? 1 : matchContent ? 2 : 3;
+        if (score === 3) return null;
+        return { item, score };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 10)
+      .map(({ item }) => ({
+        url: item.url,
+        title: item.title,
+        snippet: item.content.slice(0, 160) + '...',
+        type: item.url.includes('/blog/') ? 'blog' : item.url.includes('/product/') ? 'product' : 'page'
+      }));
+
+    res.json({ results });
+  } catch (err) {
+    console.error('Lite search error:', err.message);
+    res.status(500).json({ error: 'Lite search failed' });
+  }
+});
+
+
 app.listen(PORT, () => {
   console.log(`✅ Search API listening on port ${PORT}`);
 });
