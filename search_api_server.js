@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const Fuse = require('fuse.js');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,8 +52,10 @@ app.post('/api/search', async (req, res) => {
     const finalResults = results.slice(0, 10).map(result => {
       const item = result.item;
       let snippet = '';
+      let title = item.title;
 
       if (result.matches) {
+        // Highlight matches in content
         const contentMatch = result.matches.find(m => m.key === 'content');
         if (contentMatch && contentMatch.indices.length > 0) {
           const [start, end] = contentMatch.indices[0];
@@ -69,14 +72,30 @@ app.post('/api/search', async (req, res) => {
         } else {
           snippet = item.content.slice(0, 160) + '...';
         }
+
+        // Highlight matches in title
+        const titleMatch = result.matches.find(m => m.key === 'title');
+        if (titleMatch && titleMatch.indices.length > 0) {
+          titleMatch.indices.forEach(([s, e]) => {
+            const matchedText = title.slice(s, e + 1);
+            title = title.replace(matchedText, `<mark>${matchedText}</mark>`);
+          });
+        }
       } else {
         snippet = item.content.slice(0, 160) + '...';
       }
 
+      // Infer type from URL structure
+      let type = 'other';
+      if (item.url.includes('/blog/')) type = 'blog';
+      else if (item.url.includes('/product/')) type = 'product';
+      else if (item.url.includes('/pages/') || item.url.includes('/page/')) type = 'page';
+
       return {
         url: item.url,
-        title: item.title,
-        snippet
+        title,
+        snippet,
+        type
       };
     });
 
