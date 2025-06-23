@@ -11,6 +11,9 @@ const path = require('path');
 const EventEmitter = require('events');
 const fs = require('fs');
 
+const cache = new Map();
+
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
