@@ -13,31 +13,27 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 app.post('/api/search', async (req, res) => {
-  const { query, url, exact } = req.body;
+  const { query, url } = req.body;
   if (!query || !url) {
     return res.status(400).json({ error: 'Missing query or index URL' });
   }
 
   try {
-    // Fetch the search index JSON file from the Squarespace site
     const response = await axios.get(url, { timeout: 5000 });
     const index = response.data;
 
-    // Set up Fuse.js options
-    const isExact = exact === true;
     const fuse = new Fuse(index, {
       keys: ['title', 'description', 'content'],
       includeScore: true,
       includeMatches: true,
-      threshold: isExact ? 0.0 : 0.4,
-      ignoreLocation: !isExact,
-      useExtendedSearch: isExact
+      threshold: 0.0, // Require exact order of characters
+      ignoreLocation: true,
+      useExtendedSearch: true
     });
 
-    const searchQuery = isExact ? `'${query}` : query;
-    let results = fuse.search(searchQuery);
+    const searchQuery = query.toLowerCase();
+    let results = fuse.search(`=${searchQuery}`); // Force exact token match but still ignore case
 
-    // Sort to prioritize matches in title first, then description, then content
     results.sort((a, b) => {
       const getPriority = matchArray => {
         if (!matchArray) return 3;
@@ -55,7 +51,6 @@ app.post('/api/search', async (req, res) => {
       let title = item.title;
 
       if (result.matches) {
-        // Highlight matches in content
         const contentMatch = result.matches.find(m => m.key === 'content');
         if (contentMatch && contentMatch.indices.length > 0) {
           const [start, end] = contentMatch.indices[0];
@@ -73,29 +68,22 @@ app.post('/api/search', async (req, res) => {
           snippet = item.content.slice(0, 160) + '...';
         }
 
-        // Highlight matches in title
         const titleMatch = result.matches.find(m => m.key === 'title');
         if (titleMatch && titleMatch.indices.length > 0) {
-          if (titleMatch && titleMatch.indices.length > 0) {
-  let highlighted = '';
-  let lastIndex = 0;
-
-  titleMatch.indices.forEach(([start, end]) => {
-    highlighted += title.slice(lastIndex, start);
-    highlighted += `<mark>${title.slice(start, end + 1)}</mark>`;
-    lastIndex = end + 1;
-  });
-
-  highlighted += title.slice(lastIndex);
-  title = highlighted;
-}
-
+          let highlighted = '';
+          let lastIndex = 0;
+          titleMatch.indices.forEach(([start, end]) => {
+            highlighted += title.slice(lastIndex, start);
+            highlighted += `<mark>${title.slice(start, end + 1)}</mark>`;
+            lastIndex = end + 1;
+          });
+          highlighted += title.slice(lastIndex);
+          title = highlighted;
         }
       } else {
         snippet = item.content.slice(0, 160) + '...';
       }
 
-      // Infer type from URL structure
       let type = 'other';
       if (item.url.includes('/blog/')) type = 'blog';
       else if (item.url.includes('/product/')) type = 'product';
