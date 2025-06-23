@@ -142,22 +142,30 @@ app.post('/api/generate-index', async (req, res) => {
 
     for (const url of urls) {
       try {
-        const pageRes = await axios.get(url);
-        const $ = cheerio.load(pageRes.data);
+  const pageRes = await axios.get(url, { timeout: 7000 });
+  const $ = cheerio.load(pageRes.data);
 
-        const title = $('title').text().trim();
-        const description = $('meta[name="description"]').attr('content') || '';
-        const content = $('main').text().replace(/\s+/g, ' ').trim();
+  const title = $('title').text().trim();
+  const description = $('meta[name="description"]').attr('content') || '';
+  const content = $('main').text().replace(/\s+/g, ' ').trim();
 
-        indexData.push({
-          url: url.replace(domain, ''),
-          title,
-          description,
-          content
-        });
-      } catch (pageErr) {
-        console.warn('Failed to parse page:', url);
-      }
+  const relativeUrl = url.replace(domain, '');
+
+  if (!title && !description && !content) {
+    console.warn(`⚠️ Skipping page due to missing content: ${url}`);
+    return; // skip this entry
+  }
+
+  indexData.push({
+    url: relativeUrl,
+    title,
+    description,
+    content
+  });
+} catch (err) {
+  console.error(`❌ Failed to fetch page: ${url} – ${err.message}`);
+}
+
     }
 
     res.setHeader('Content-Disposition', 'attachment; filename="site-index.json"');
