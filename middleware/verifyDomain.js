@@ -2,11 +2,13 @@ const allowedSites = require('../config/allowedSites');
 
 function extractDomain(origin) {
   try {
-    if (!origin.startsWith('http')) {
-      origin = 'https://' + origin;
+    // If it's a full URL (has protocol), parse normally
+    if (origin.includes('://')) {
+      const url = new URL(origin);
+      return url.hostname.replace(/^www\./, '').toLowerCase();
     }
-    const url = new URL(origin);
-    return url.hostname.replace(/^www\./, '');
+    // Otherwise treat it as a raw domain
+    return origin.replace(/^www\./, '').toLowerCase();
   } catch (err) {
     console.error('Invalid origin header:', origin);
     return '';
