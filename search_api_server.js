@@ -22,17 +22,26 @@ app.post('/api/search', async (req, res) => {
     const response = await axios.get(url, { timeout: 5000 });
     const index = response.data;
 
-    const fuse = new Fuse(index, {
-      keys: ['title', 'description', 'content'],
-      includeScore: true,
-      includeMatches: true,
-      threshold: 0.0, // Require exact order of characters
-      ignoreLocation: true,
-      useExtendedSearch: true
-    });
+    const loweredQuery = query.toLowerCase();
 
-    const searchQuery = query.toLowerCase();
-    let results = fuse.search(searchQuery);
+let results = index
+  .map(item => {
+    const matchTitle = item.title.toLowerCase().includes(loweredQuery);
+    const matchDescription = item.description.toLowerCase().includes(loweredQuery);
+    const matchContent = item.content.toLowerCase().includes(loweredQuery);
+
+    const score =
+      matchTitle ? 0 :
+      matchDescription ? 1 :
+      matchContent ? 2 : 3;
+
+    if (score === 3) return null;
+
+    return { item, score };
+  })
+  .filter(Boolean)
+  .sort((a, b) => a.score - b.score);
+
 
     results.sort((a, b) => {
       const getPriority = matchArray => {
