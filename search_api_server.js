@@ -145,6 +145,7 @@ app.post('/api/search', verifyDomain, async (req, res) => {
   }
 });
 
+// JSON generator with progress
 app.post('/api/generate-index', async (req, res) => {
   const { domain, id } = req.body;
   if (!domain || !domain.startsWith('http') || !id) {
@@ -185,9 +186,7 @@ app.post('/api/generate-index', async (req, res) => {
       if (emitter) emitter.emit('update', { done, total });
     }
 
-    res.setHeader('Content-Disposition', 'attachment; filename="site-index.json"');
-    res.setHeader('Content-Type', 'application/json');
-    res.send(JSON.stringify(indexData, null, 2));
+    res.json({ pages: indexData });
   } catch (err) {
     console.error('Error:', err.message);
     res.status(500).json({ error: 'Failed to generate index' });
