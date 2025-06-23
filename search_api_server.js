@@ -9,6 +9,7 @@ const { parseStringPromise } = require('xml2js');
 const Fuse = require('fuse.js');
 const path = require('path');
 const EventEmitter = require('events');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -145,7 +146,6 @@ app.post('/api/search', verifyDomain, async (req, res) => {
   }
 });
 
-// JSON generator with progress
 app.post('/api/generate-index', async (req, res) => {
   const { domain, id } = req.body;
   if (!domain || !domain.startsWith('http') || !id) {
@@ -166,25 +166,22 @@ app.post('/api/generate-index', async (req, res) => {
       try {
         const pageRes = await axios.get(url);
         const $ = cheerio.load(pageRes.data);
-
         const title = $('title').text().trim();
         const description = $('meta[name="description"]').attr('content') || '';
         const content = $('main').text().replace(/\s+/g, ' ').trim();
-
         if (title || description || content) {
-          indexData.push({
-            url: url.replace(domain, ''),
-            title,
-            description,
-            content
-          });
+          indexData.push({ url: url.replace(domain, ''), title, description, content });
         }
       } catch (_) {}
-
       done++;
       const emitter = clients.get(id);
       if (emitter) emitter.emit('update', { done, total });
     }
+
+    cache.set(domain, indexData);
+    const filePath = getCacheFilePath(domain);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(indexData, null, 2));
 
     res.json({ pages: indexData });
   } catch (err) {
@@ -199,30 +196,9 @@ app.post('/api/search-lite', async (req, res) => {
     return res.status(400).json({ error: 'Missing query or invalid domain' });
   }
 
-  try {
-    const sitemapUrl = domain + '/sitemap.xml';
-    const sitemapRes = await axios.get(sitemapUrl);
-    const sitemapData = await parseStringPromise(sitemapRes.data);
-
-    const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(url => url.startsWith(domain));
-    const pages = [];
-
-    for (const url of urls) {
-      try {
-        const pageRes = await axios.get(url);
-        const $ = cheerio.load(pageRes.data);
-        const title = $('title').text().trim();
-        const description = $('meta[name="description"]').attr('content') || '';
-        const content = $('main').text().replace(/\s+/g, ' ').trim();
-
-        if (title || description || content) {
-          pages.push({ url, title, description, content });
-        }
-      } catch (_) {}
-    }
-
-    const loweredQuery = query.toLowerCase();
-    const results = pages
+  function searchInIndex(index, q) {
+    const loweredQuery = q.toLowerCase();
+    const results = index
       .map(item => {
         const matchTitle = item.title.toLowerCase().includes(loweredQuery);
         const matchDescription = item.description.toLowerCase().includes(loweredQuery);
@@ -240,8 +216,24 @@ app.post('/api/search-lite', async (req, res) => {
         snippet: item.content.slice(0, 160) + '...',
         type: item.url.includes('/blog/') ? 'blog' : item.url.includes('/product/') ? 'product' : 'page'
       }));
-
     res.json({ results });
+  }
+
+  try {
+    if (cache.has(domain)) {
+      console.log('✅ Using cached memory index');
+      return searchInIndex(cache.get(domain), query);
+    }
+
+    const filePath = getCacheFilePath(domain);
+    if (fs.existsSync(filePath)) {
+      console.log('✅ Loading cached index from file');
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      cache.set(domain, data);
+      return searchInIndex(data, query);
+    }
+
+    res.status(404).json({ error: 'No index found for domain. Please generate it first.' });
   } catch (err) {
     console.error('Lite search error:', err.message);
     res.status(500).json({ error: 'Lite search failed' });
