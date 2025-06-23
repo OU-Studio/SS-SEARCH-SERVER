@@ -8,13 +8,12 @@ const cheerio = require('cheerio');
 const { parseStringPromise } = require('xml2js');
 const Fuse = require('fuse.js');
 const path = require('path');
+const EventEmitter = require('events');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 
-
-app.use(express.json());
 
 app.use(express.json());
 
@@ -24,6 +23,28 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Headers', '*');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
+});
+
+const clients = new Map(); // track SSE clients by ID
+
+// SSE progress route
+app.get('/api/progress/:id', (req, res) => {
+  const id = req.params.id;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const emitter = new EventEmitter();
+  clients.set(id, emitter);
+
+  emitter.on('update', (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  });
+
+  req.on('close', () => {
+    clients.delete(id);
+  });
 });
 
 
@@ -124,11 +145,10 @@ app.post('/api/search', verifyDomain, async (req, res) => {
   }
 });
 
-// Generate index endpoint
 app.post('/api/generate-index', async (req, res) => {
-  const { domain } = req.body;
-  if (!domain || !domain.startsWith('http')) {
-    return res.status(400).json({ error: 'Invalid or missing domain (must include https://)' });
+  const { domain, id } = req.body;
+  if (!domain || !domain.startsWith('http') || !id) {
+    return res.status(400).json({ error: 'Invalid request' });
   }
 
   try {
@@ -137,42 +157,39 @@ app.post('/api/generate-index', async (req, res) => {
     const sitemapData = await parseStringPromise(sitemapResponse.data);
 
     const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(url => url.startsWith(domain));
-
+    const total = urls.length;
+    let done = 0;
     const indexData = [];
 
     for (const url of urls) {
       try {
-  const pageRes = await axios.get(url, { timeout: 7000 });
-  const $ = cheerio.load(pageRes.data);
+        const pageRes = await axios.get(url);
+        const $ = cheerio.load(pageRes.data);
 
-  const title = $('title').text().trim();
-  const description = $('meta[name="description"]').attr('content') || '';
-  const content = $('main').text().replace(/\s+/g, ' ').trim();
+        const title = $('title').text().trim();
+        const description = $('meta[name="description"]').attr('content') || '';
+        const content = $('main').text().replace(/\s+/g, ' ').trim();
 
-  const relativeUrl = url.replace(domain, '');
+        if (title || description || content) {
+          indexData.push({
+            url: url.replace(domain, ''),
+            title,
+            description,
+            content
+          });
+        }
+      } catch (_) {}
 
-  if (!title && !description && !content) {
-    console.warn(`⚠️ Skipping page due to missing content: ${url}`);
-    return; // skip this entry
-  }
-
-  indexData.push({
-    url: relativeUrl,
-    title,
-    description,
-    content
-  });
-} catch (err) {
-  console.error(`❌ Failed to fetch page: ${url} – ${err.message}`);
-}
-
+      done++;
+      const emitter = clients.get(id);
+      if (emitter) emitter.emit('update', { done, total });
     }
 
     res.setHeader('Content-Disposition', 'attachment; filename="site-index.json"');
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(indexData, null, 2));
   } catch (err) {
-    console.error('Error generating index:', err.message);
+    console.error('Error:', err.message);
     res.status(500).json({ error: 'Failed to generate index' });
   }
 });
