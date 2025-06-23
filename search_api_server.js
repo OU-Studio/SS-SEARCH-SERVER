@@ -13,8 +13,15 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Allow all origins for testing
-app.use(cors({ origin: '*' }));
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type']
+}));
+
 app.use(express.json());
+app.options('*', cors());
+
 
 // Search endpoint
 app.post('/api/search', verifyDomain, async (req, res) => {
