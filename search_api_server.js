@@ -76,10 +76,20 @@ app.post('/api/search', async (req, res) => {
         // Highlight matches in title
         const titleMatch = result.matches.find(m => m.key === 'title');
         if (titleMatch && titleMatch.indices.length > 0) {
-          titleMatch.indices.forEach(([s, e]) => {
-            const matchedText = title.slice(s, e + 1);
-            title = title.replace(matchedText, `<mark>${matchedText}</mark>`);
-          });
+          if (titleMatch && titleMatch.indices.length > 0) {
+  let highlighted = '';
+  let lastIndex = 0;
+
+  titleMatch.indices.forEach(([start, end]) => {
+    highlighted += title.slice(lastIndex, start);
+    highlighted += `<mark>${title.slice(start, end + 1)}</mark>`;
+    lastIndex = end + 1;
+  });
+
+  highlighted += title.slice(lastIndex);
+  title = highlighted;
+}
+
         }
       } else {
         snippet = item.content.slice(0, 160) + '...';
