@@ -13,6 +13,12 @@ const fs = require('fs');
 
 const cache = new Map();
 
+function getCacheFilePath(domain) {
+  const safe = domain.replace(/[^a-z0-9.-]/gi, '_');
+  return path.join(__dirname, 'cached-indexes', `${safe}.json`);
+}
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -150,6 +156,10 @@ app.post('/api/search', verifyDomain, async (req, res) => {
 });
 
 app.post('/api/generate-index', async (req, res) => {
+  if (!domain.startsWith('http')) {
+  domain = 'https://' + domain;
+}
+
   const { domain, id } = req.body;
   if (!domain || !domain.startsWith('http') || !id) {
     return res.status(400).json({ error: 'Invalid request' });
@@ -194,6 +204,10 @@ app.post('/api/generate-index', async (req, res) => {
 });
 
 app.post('/api/search-lite', async (req, res) => {
+  if (!domain.startsWith('http')) {
+  domain = 'https://' + domain;
+}
+
   const { query, domain } = req.body;
   if (!query || !domain || !domain.startsWith('http')) {
     return res.status(400).json({ error: 'Missing query or invalid domain' });
