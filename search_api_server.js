@@ -12,20 +12,28 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Allow all origins for testing
-const corsOptions = {
-  origin: ['https://www.ou.studio, https://www.managemywebsite.com'], // Replace/add other allowed domains if needed
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
-  credentials: false
-};
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Handles preflight requests
 
 app.use(express.json());
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+
+const allowedOrigins = ['https://www.ou.studio'];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+});
+
+// Explicit preflight handling
+app.options('*', (req, res) => {
+  res.sendStatus(200);
+});
+
 
 
 
