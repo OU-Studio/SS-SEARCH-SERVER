@@ -34,7 +34,21 @@ app.post('/api/search', async (req, res) => {
     });
 
     const searchQuery = isExact ? `'${query}` : query;
-    const results = fuse.search(searchQuery).slice(0, 10).map(result => {
+    let results = fuse.search(searchQuery);
+
+    // Sort to prioritize matches in title first, then description, then content
+    results.sort((a, b) => {
+      const getPriority = matchArray => {
+        if (!matchArray) return 3;
+        if (matchArray.some(m => m.key === 'title')) return 0;
+        if (matchArray.some(m => m.key === 'description')) return 1;
+        if (matchArray.some(m => m.key === 'content')) return 2;
+        return 3;
+      };
+      return getPriority(a.matches) - getPriority(b.matches);
+    });
+
+    const finalResults = results.slice(0, 10).map(result => {
       const item = result.item;
       let snippet = '';
 
@@ -66,7 +80,7 @@ app.post('/api/search', async (req, res) => {
       };
     });
 
-    res.json({ results });
+    res.json({ results: finalResults });
   } catch (error) {
     console.error('Search error:', error.message);
     res.status(500).json({ error: 'Failed to fetch or search index' });
