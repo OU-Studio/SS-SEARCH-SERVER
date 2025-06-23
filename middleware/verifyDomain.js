@@ -14,6 +14,13 @@ function verifyDomain(req, res, next) {
   const token = req.header('x-site-token');
   const originHeader = req.header('x-origin-domain') || req.header('referer');
 
+  console.log('Token:', req.header('x-site-token'));
+console.log('Origin/Referer:', req.header('x-origin-domain') || req.header('referer'));
+
+  console.log('Resolved domain:', extractDomain(req.header('x-origin-domain') || req.header('referer')));
+
+
+
   if (!token || !originHeader) {
     return res.status(400).json({ error: 'Missing token or origin domain' });
   }
