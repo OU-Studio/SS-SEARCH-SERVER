@@ -13,9 +13,9 @@ const fs = require('fs');
 
 const allowedLiteDomains = require('./config/allowedLiteDomains');
 
-const allowedSites = require('./config/allowedDomains');
+const allowedSites = require('./config/allowedSites');
 
-const allowedOrigins = Object.keys(allowedSites).flatMap(domain => [
+const allowedOrigins = allowedSites.flatMap(domain => [
   `https://${domain}`,
   `https://www.${domain}`
 ]);
