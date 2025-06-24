@@ -69,8 +69,7 @@ app.use(express.json());
 const cache = new Map();
 const clients = new Map();
 
-const createAdminRouter = require('./adminRoutes');
-app.use('/admin', createAdminRouter(cache, clients));
+
 
 
 
@@ -113,6 +112,9 @@ app.get('/api/progress/:id', (req, res) => {
     clients.delete(id);
   });
 });
+
+const createAdminRouter = require('./adminRoutes');
+app.use('/admin', createAdminRouter(cache, clients));
 
 app.post('/api/search', verifyDomain, async (req, res) => {
   const { query, url } = req.body;
