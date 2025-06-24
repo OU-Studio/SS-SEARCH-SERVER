@@ -1,13 +1,14 @@
-const allowedSites = require('../config/allowedSites');
+const fs = require('fs');
+const path = require('path');
+
+const DOMAIN_FILE = path.join(__dirname, '../data/allowed-domains.json');
 
 function extractDomain(origin) {
   try {
-    // If it's a full URL (has protocol), parse normally
     if (origin.includes('://')) {
       const url = new URL(origin);
       return url.hostname.replace(/^www\./, '').toLowerCase();
     }
-    // Otherwise treat it as a raw domain
     return origin.replace(/^www\./, '').toLowerCase();
   } catch (err) {
     console.error('Invalid origin header:', origin);
@@ -15,22 +16,26 @@ function extractDomain(origin) {
   }
 }
 
-function verifyDomain(req, res, next) {
-  const token = req.header('x-site-token');
-  const originHeader = req.header('x-origin-domain') || req.header('referer') || '';
-
-  console.log('Token:', token);
-  console.log('Origin/Referer:', originHeader);
-
-  const domain = extractDomain(originHeader);
-  console.log('Resolved domain:', domain);
-
-  if (!token || !domain) {
-    return res.status(400).json({ error: 'Missing token or invalid origin domain' });
+function getAllowedDomains() {
+  try {
+    const raw = fs.readFileSync(DOMAIN_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to read allowed-domains.json:', e.message);
+    return [];
   }
+}
 
-  if (!allowedSites[domain] || allowedSites[domain] !== token) {
-    return res.status(403).json({ error: 'Unauthorized domain or token mismatch' });
+function verifyDomain(req, res, next) {
+  const originHeader = req.header('x-origin-domain') || req.header('referer') || '';
+  const domain = extractDomain(originHeader);
+
+  console.log('🔐 Verifying domain:', domain);
+
+  const allowedDomains = getAllowedDomains();
+  if (!domain || !allowedDomains.includes(domain)) {
+    console.warn(`❌ Domain not allowed: ${domain}`);
+    return res.status(403).json({ error: 'Unauthorized domain' });
   }
 
   req.site = domain;
