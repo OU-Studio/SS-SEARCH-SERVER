@@ -12,6 +12,8 @@ const Fuse = require('fuse.js');
 const path = require('path');
 const EventEmitter = require('events');
 const fs = require('fs');
+const cron = require('node-cron');
+
 
 function getAllowedDomains() {
   try {
@@ -267,6 +269,54 @@ app.post('/api/search-lite', async (req, res) => {
     res.status(500).json({ error: 'Lite search failed' });
   }
 });
+
+// Daily crawl at 3am
+cron.schedule('45 22 * * *', async () => {
+  console.log('🕒 Starting daily crawl at 3am');
+  const allowedDomains = getAllowedDomains();
+
+  for (const domain of allowedDomains) {
+    try {
+      const cleanDomain = domain.replace(/^https?:\/\//, '');
+      const url = `https://${cleanDomain}`;
+      const sitemapUrl = `${url}/sitemap.xml`;
+      const sitemapResponse = await axios.get(sitemapUrl);
+      const sitemapData = await parseStringPromise(sitemapResponse.data);
+
+      const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(link => link.startsWith(url));
+      const indexData = [];
+
+      for (const pageUrl of urls) {
+        try {
+          const pageRes = await axios.get(pageUrl);
+          const $ = cheerio.load(pageRes.data);
+          const title = $('title').text().trim();
+          const description = $('meta[name="description"]').attr('content') || '';
+          const content = $('main').text().replace(/\s+/g, ' ').trim();
+          if (title || description || content) {
+            indexData.push({
+              url: pageUrl.replace(url, ''),
+              title,
+              description,
+              content
+            });
+          }
+        } catch (err) {
+          console.warn(`❌ Failed to scrape ${pageUrl}:`, err.message);
+        }
+      }
+
+      cache.set(cleanDomain, indexData);
+      const filePath = getCacheFilePath(cleanDomain);
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(indexData, null, 2));
+      console.log(`✅ Daily crawl completed and cached for ${cleanDomain}`);
+    } catch (err) {
+      console.error(`❌ Error crawling ${domain}:`, err.message);
+    }
+  }
+});
+
 
 app.listen(PORT, () => {
   console.log(`✅ Search API listening on port ${PORT}`);
