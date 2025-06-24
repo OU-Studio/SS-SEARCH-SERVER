@@ -15,7 +15,7 @@ const fs = require('fs');
 
 function getAllowedDomains() {
   try {
-    const raw = fs.readFileSync(path.join(__dirname, 'allowed-domains.json'), 'utf-8');
+    const raw = fs.readFileSync(path.join(__dirname, 'data', 'allowed-domains.json'), 'utf-8');
     return JSON.parse(raw);
   } catch (e) {
     console.error('Failed to read allowed-domains.json:', e.message);
