@@ -35,7 +35,7 @@ const { parseStringPromise } = require('xml2js');
 
 const getCacheFilePath = (domain) => {
   const safe = domain.replace(/[^a-z0-9.-]/gi, '_');
-  return path.join(__dirname, 'cached-indexes', `${safe}.json`);
+  return path.join(__dirname, 'data', 'cached-indexes', `${safe}.json`);
 };
 
 adminRouter.post('/index', async (req, res) => {
