@@ -165,8 +165,10 @@ app.post('/api/generate-index', async (req, res) => {
 
     cache.set(domain, indexData);
     const filePath = getCacheFilePath(domain);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(indexData, null, 2));
+fs.mkdirSync(path.dirname(filePath), { recursive: true });
+fs.writeFileSync(filePath, JSON.stringify(indexData, null, 2));
+console.log(`📝 Cache written to: ${filePath}`);
+
 
     res.json({ pages: indexData });
   } catch (err) {
