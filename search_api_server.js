@@ -137,6 +137,8 @@ app.post('/api/generate-index', async (req, res) => {
   if (!domain.startsWith('http')) domain = 'https://' + domain;
   if (!id) return res.status(400).json({ error: 'Missing request ID' });
 
+  const cleanDomain = domain.replace(/^https?:\/\//, '');
+
   try {
     const sitemapUrl = domain + '/sitemap.xml';
     const sitemapResponse = await axios.get(sitemapUrl);
@@ -163,18 +165,12 @@ app.post('/api/generate-index', async (req, res) => {
       if (emitter) emitter.emit('update', { done, total });
     }
 
-    const cleanDomain = domain.replace(/^https?:\/\//, '');
-cache.set(cleanDomain, indexData);
-console.log(`✅ Cached index in memory for ${cleanDomain}`);
-
-    console.log(`✅ Index cached in memory for ${domain}`);
-
+    cache.set(cleanDomain, indexData);
     const filePath = getCacheFilePath(cleanDomain);
-
-fs.mkdirSync(path.dirname(filePath), { recursive: true });
-fs.writeFileSync(filePath, JSON.stringify(indexData, null, 2));
-console.log(`📝 Cache written to: ${filePath}`);
-
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(indexData, null, 2));
+    console.log(`✅ Cached index in memory for ${cleanDomain}`);
+    console.log(`📝 Cache written to: ${filePath}`);
 
     res.json({ pages: indexData });
   } catch (err) {
@@ -188,6 +184,8 @@ app.post('/api/search-lite', async (req, res) => {
   if (!domain) return res.status(400).json({ error: 'Missing domain' });
   if (!domain.startsWith('http')) domain = 'https://' + domain;
   if (!query) return res.status(400).json({ error: 'Missing query' });
+
+  const cleanDomain = domain.replace(/^https?:\/\//, '');
 
   function searchInIndex(index, q) {
     const loweredQuery = q.toLowerCase();
@@ -213,22 +211,16 @@ app.post('/api/search-lite', async (req, res) => {
   }
 
   try {
-    const cleanDomain = domain.replace(/^https?:\/\//, '');
-
-if (cache.has(cleanDomain)) {
-  console.log('✅ Using cached memory index');
-  return searchInIndex(cache.get(cleanDomain), query);
-}
-
+    if (cache.has(cleanDomain)) {
+      console.log('✅ Using cached memory index');
+      return searchInIndex(cache.get(cleanDomain), query);
+    }
 
     const filePath = getCacheFilePath(cleanDomain);
-
     if (fs.existsSync(filePath)) {
       console.log('✅ Loading cached index from file');
       const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      cache.set(domain, data);
-      console.log(`✅ Index cached in memory for ${domain}`);
-
+      cache.set(cleanDomain, data);
       return searchInIndex(data, query);
     }
 
