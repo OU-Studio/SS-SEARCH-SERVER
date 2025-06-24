@@ -2,10 +2,7 @@ const express = require('express');
 const app = express(); // ✅ MUST be before any app.use()
 const PORT = process.env.PORT || 3000;
 
-// Ensure flushHeaders exists for older Node versions
-if (!res.flushHeaders && res.flush) {
-  res.flushHeaders = res.flush;
-}
+
 
 
 const verifyDomain = require('./middleware/verifyDomain');
