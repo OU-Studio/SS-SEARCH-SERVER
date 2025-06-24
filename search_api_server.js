@@ -85,7 +85,7 @@ app.get('/api/lite-allowed', (req, res) => {
 });
 
 
-const cache = new Map();
+
 
 function getCacheFilePath(domain) {
   const safe = domain.replace(/[^a-z0-9.-]/gi, '_');
@@ -93,7 +93,7 @@ function getCacheFilePath(domain) {
 }
 
 
-const clients = new Map();
+
 
 app.get('/api/progress/:id', (req, res) => {
   const id = req.params.id;
