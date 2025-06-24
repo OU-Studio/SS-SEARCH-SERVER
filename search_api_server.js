@@ -18,12 +18,8 @@ function getCacheFilePath(domain) {
   return path.join(__dirname, 'cached-indexes', `${safe}.json`);
 }
 
-
-
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-
 
 app.use(express.json());
 
@@ -57,9 +53,6 @@ app.get('/api/progress/:id', (req, res) => {
   });
 });
 
-
-
-
 // Search endpoint
 app.post('/api/search', verifyDomain, async (req, res) => {
   const { query, url } = req.body;
@@ -91,24 +84,11 @@ app.post('/api/search', verifyDomain, async (req, res) => {
       .filter(Boolean)
       .sort((a, b) => a.score - b.score);
 
-    results.sort((a, b) => {
-      const getPriority = matchArray => {
-        if (!matchArray) return 3;
-        if (matchArray.some(m => m.key === 'title')) return 0;
-        if (matchArray.some(m => m.key === 'description')) return 1;
-        if (matchArray.some(m => m.key === 'content')) return 2;
-        return 3;
-      };
-      return getPriority(a.matches) - getPriority(b.matches);
-    });
-
     const finalResults = results.slice(0, 10).map(result => {
       const item = result.item;
-      const loweredQuery = query.toLowerCase();
       let title = item.title;
       let snippet = '';
 
-      // Highlight in title
       const titleLower = title.toLowerCase();
       const titleIndex = titleLower.indexOf(loweredQuery);
       if (titleIndex !== -1) {
@@ -118,23 +98,19 @@ app.post('/api/search', verifyDomain, async (req, res) => {
         title = `${before}<mark>${match}</mark>${after}`;
       }
 
-      // Highlight in content
       const contentLower = item.content.toLowerCase();
       const contentIndex = contentLower.indexOf(loweredQuery);
       if (contentIndex !== -1) {
         const contextBefore = Math.max(contentIndex - 40, 0);
         const contextAfter = Math.min(contentIndex + query.length + 40, item.content.length);
         let excerpt = item.content.slice(contextBefore, contextAfter);
-
         const match = item.content.slice(contentIndex, contentIndex + query.length);
         excerpt = excerpt.replace(match, `<mark>${match}</mark>`);
-
         snippet = (contextBefore > 0 ? '...' : '') + excerpt + (contextAfter < item.content.length ? '...' : '');
       } else {
         snippet = item.content.slice(0, 160) + '...';
       }
 
-      // Detect type
       let type = 'other';
       if (item.url.includes('/blog/')) type = 'blog';
       else if (item.url.includes('/product/')) type = 'product';
@@ -156,14 +132,10 @@ app.post('/api/search', verifyDomain, async (req, res) => {
 });
 
 app.post('/api/generate-index', async (req, res) => {
-  if (!domain.startsWith('http')) {
-  domain = 'https://' + domain;
-}
-
-  const { domain, id } = req.body;
-  if (!domain || !domain.startsWith('http') || !id) {
-    return res.status(400).json({ error: 'Invalid request' });
-  }
+  let { domain, id } = req.body;
+  if (!domain) return res.status(400).json({ error: 'Missing domain' });
+  if (!domain.startsWith('http')) domain = 'https://' + domain;
+  if (!id) return res.status(400).json({ error: 'Missing request ID' });
 
   try {
     const sitemapUrl = domain + '/sitemap.xml';
@@ -204,14 +176,10 @@ app.post('/api/generate-index', async (req, res) => {
 });
 
 app.post('/api/search-lite', async (req, res) => {
-  if (!domain.startsWith('http')) {
-  domain = 'https://' + domain;
-}
-
-  const { query, domain } = req.body;
-  if (!query || !domain || !domain.startsWith('http')) {
-    return res.status(400).json({ error: 'Missing query or invalid domain' });
-  }
+  let { query, domain } = req.body;
+  if (!domain) return res.status(400).json({ error: 'Missing domain' });
+  if (!domain.startsWith('http')) domain = 'https://' + domain;
+  if (!query) return res.status(400).json({ error: 'Missing query' });
 
   function searchInIndex(index, q) {
     const loweredQuery = q.toLowerCase();
@@ -256,7 +224,6 @@ app.post('/api/search-lite', async (req, res) => {
     res.status(500).json({ error: 'Lite search failed' });
   }
 });
-
 
 app.listen(PORT, () => {
   console.log(`✅ Search API listening on port ${PORT}`);
