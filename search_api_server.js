@@ -163,10 +163,14 @@ app.post('/api/generate-index', async (req, res) => {
       if (emitter) emitter.emit('update', { done, total });
     }
 
-    cache.set(domain, indexData);
+    const cleanDomain = domain.replace(/^https?:\/\//, '');
+cache.set(cleanDomain, indexData);
+console.log(`✅ Cached index in memory for ${cleanDomain}`);
+
     console.log(`✅ Index cached in memory for ${domain}`);
 
-    const filePath = getCacheFilePath(domain);
+    const filePath = getCacheFilePath(cleanDomain);
+
 fs.mkdirSync(path.dirname(filePath), { recursive: true });
 fs.writeFileSync(filePath, JSON.stringify(indexData, null, 2));
 console.log(`📝 Cache written to: ${filePath}`);
@@ -209,12 +213,16 @@ app.post('/api/search-lite', async (req, res) => {
   }
 
   try {
-    if (cache.has(domain)) {
-      console.log('✅ Using cached memory index');
-      return searchInIndex(cache.get(domain), query);
-    }
+    const cleanDomain = domain.replace(/^https?:\/\//, '');
 
-    const filePath = getCacheFilePath(domain);
+if (cache.has(cleanDomain)) {
+  console.log('✅ Using cached memory index');
+  return searchInIndex(cache.get(cleanDomain), query);
+}
+
+
+    const filePath = getCacheFilePath(cleanDomain);
+
     if (fs.existsSync(filePath)) {
       console.log('✅ Loading cached index from file');
       const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
