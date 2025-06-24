@@ -66,8 +66,11 @@ app.use(cors({
 // ✅ Then apply other middlewares
 app.use(express.json());
 
-const adminRoutes = require('./adminRoutes');
-app.use('/admin', adminRoutes);
+const cache = new Map();
+const clients = new Map();
+
+const createAdminRouter = require('./adminRoutes');
+app.use('/admin', createAdminRouter(cache, clients));
 
 
 
