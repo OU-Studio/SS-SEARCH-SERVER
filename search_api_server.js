@@ -13,22 +13,35 @@ const path = require('path');
 const EventEmitter = require('events');
 const fs = require('fs');
 
-const allowedLiteDomains = require('./config/allowedSites');
+function getAllowedDomains() {
+  try {
+    const raw = fs.readFileSync(path.join(__dirname, 'allowed-domains.json'), 'utf-8');
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to read allowed-domains.json:', e.message);
+    return [];
+  }
+}
 
-const allowedOrigins = allowedLiteDomains.flatMap(domain => [
-  `https://${domain}`,
-  `https://www.${domain}`
-]);
+function getAllowedOrigins() {
+  return getAllowedDomains().flatMap(domain => [
+    `https://${domain}`,
+    `https://www.${domain}`
+  ]);
+}
+
 
 // ✅ This must come after `app` is defined
 app.use(cors({
   origin: function (origin, callback) {
+    const allowedOrigins = getAllowedOrigins();
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     return callback(new Error('Not allowed by CORS'));
   }
 }));
+
 
 // ✅ Then apply other middlewares
 app.use(express.json());
@@ -39,9 +52,11 @@ app.get('/api/lite-allowed', (req, res) => {
   if (!raw) return res.status(400).json({ allowed: false });
 
   const clean = raw.replace(/^https?:\/\//, '').replace(/^www\./, '');
+  const allowedLiteDomains = getAllowedDomains();
   const isAllowed = allowedLiteDomains.includes(clean);
   res.json({ allowed: isAllowed });
 });
+
 
 const cache = new Map();
 
