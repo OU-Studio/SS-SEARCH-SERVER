@@ -2,7 +2,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { ADMIN_TOKEN } = require('./config');
+const { ADMIN_TOKEN } = require('./config/config');
 
 const adminRouter = express.Router();
 const DOMAIN_FILE = path.join(__dirname, 'data', 'allowed-domains.json');
