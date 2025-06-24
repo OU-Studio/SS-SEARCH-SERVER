@@ -1,7 +1,9 @@
-// search_api_server.js
+const express = require('express');
+const app = express(); // ✅ MUST be before any app.use()
+const PORT = process.env.PORT || 3000;
+
 const verifyDomain = require('./middleware/verifyDomain');
 
-const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const cheerio = require('cheerio');
@@ -18,6 +20,7 @@ const allowedOrigins = allowedLiteDomains.flatMap(domain => [
   `https://www.${domain}`
 ]);
 
+// ✅ This must come after `app` is defined
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -26,6 +29,9 @@ app.use(cors({
     return callback(new Error('Not allowed by CORS'));
   }
 }));
+
+// ✅ Then apply other middlewares
+app.use(express.json());
 
 
 app.get('/api/lite-allowed', (req, res) => {
@@ -44,10 +50,10 @@ function getCacheFilePath(domain) {
   return path.join(__dirname, 'cached-indexes', `${safe}.json`);
 }
 
-const app = express();
-const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+
+
+
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
