@@ -271,7 +271,7 @@ app.post('/api/search-lite', async (req, res) => {
 });
 
 // Daily crawl at 3am
-cron.schedule('45 22 * * *', async () => {
+cron.schedule('50 22 * * *', async () => {
   console.log('🕒 Starting daily crawl at 3am');
   const allowedDomains = getAllowedDomains();
 
