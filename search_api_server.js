@@ -11,7 +11,7 @@ const path = require('path');
 const EventEmitter = require('events');
 const fs = require('fs');
 
-const allowedLiteDomains = require('./config/allowedDomains');
+const allowedLiteDomains = require('./config/allowedSites');
 
 const allowedOrigins = allowedLiteDomains.flatMap(domain => [
   `https://${domain}`,
