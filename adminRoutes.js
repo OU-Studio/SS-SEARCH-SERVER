@@ -14,6 +14,22 @@ function getCacheFilePath(domain) {
   return path.join(__dirname, 'data', 'cached-indexes', `${safe}.json`);
 }
 
+function waitForClient(id, clients, timeout = 5000) {
+  return new Promise((resolve, reject) => {
+    const interval = 100;
+    let waited = 0;
+
+    const check = () => {
+      if (clients.has(id)) return resolve(clients.get(id));
+      waited += interval;
+      if (waited >= timeout) return reject(new Error('SSE client not connected'));
+      setTimeout(check, interval);
+    };
+
+    check();
+  });
+}
+
 module.exports = function createAdminRouter(cache, clients) {
   const adminRouter = express.Router();
 
@@ -43,7 +59,7 @@ module.exports = function createAdminRouter(cache, clients) {
   adminRouter.post('/index', async (req, res) => {
     const { domain, id } = req.body;
     console.log('📥 Manual index triggered for', domain, 'ID:', id);
-console.log('🧾 Clients map contains:', [...clients.keys()]);
+    console.log('🧾 Current SSE clients:', [...clients.keys()]);
 
     if (!domain || !id) return res.status(400).json({ error: 'Missing domain or ID' });
 
@@ -52,12 +68,16 @@ console.log('🧾 Clients map contains:', [...clients.keys()]);
     const sitemapUrl = `${url}/sitemap.xml`;
 
     try {
+      const emitter = await waitForClient(id, clients);
+      console.log(`🔗 SSE client ready for ID: ${id}`);
+
       const sitemapResponse = await axios.get(sitemapUrl);
       const sitemapData = await parseStringPromise(sitemapResponse.data);
       const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(link => link.startsWith(url));
       const indexData = [];
 
-      for (const pageUrl of urls) {
+      for (let i = 0; i < urls.length; i++) {
+        const pageUrl = urls[i];
         try {
           const pageRes = await axios.get(pageUrl);
           const $ = cheerio.load(pageRes.data);
@@ -74,20 +94,8 @@ console.log('🧾 Clients map contains:', [...clients.keys()]);
           }
         } catch (_) {}
 
-        let emitter = clients.get(id);
-let retries = 0;
-while (!emitter && retries < 20) {
-  await new Promise(r => setTimeout(r, 100)); // wait 100ms
-  emitter = clients.get(id);
-  retries++;
-}
-if (!emitter) {
-  console.warn(`⚠️ No SSE client found for ID ${id} after waiting`);
-} else {
-  emitter.emit('update', { done: indexData.length, total: urls.length });
-  console.log(`📡 Progress sent: ${indexData.length}/${urls.length}`);
-}
-
+        emitter.emit('update', { done: i + 1, total: urls.length });
+        console.log(`📡 Progress: ${i + 1}/${urls.length}`);
       }
 
       const filePath = getCacheFilePath(clean);
@@ -97,7 +105,7 @@ if (!emitter) {
 
       res.json({ message: 'Indexing completed' });
     } catch (err) {
-      console.error('Manual index error:', err.message);
+      console.error('❌ Manual index error:', err.message);
       res.status(500).json({ error: 'Failed to index domain' });
     }
   });
