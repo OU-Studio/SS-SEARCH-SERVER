@@ -39,47 +39,51 @@ const getCacheFilePath = (domain) => {
 };
 
 adminRouter.post('/index', async (req, res) => {
-  const { domain } = req.body;
-  if (!domain) return res.status(400).json({ error: 'Missing domain' });
+  const { domain, id } = req.body;
+  if (!domain || !id) return res.status(400).json({ error: 'Missing domain or ID' });
 
-  const cleanDomain = domain.replace(/^https?:\/\//, '');
-  const fullDomain = `https://${cleanDomain}`;
+  const clean = domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+  const url = `https://${clean}`;
+  const sitemapUrl = `${url}/sitemap.xml`;
 
   try {
-    const sitemapUrl = fullDomain + '/sitemap.xml';
-    const sitemapRes = await axios.get(sitemapUrl);
-    const sitemapData = await parseStringPromise(sitemapRes.data);
-
-    const urls = sitemapData.urlset.url.map(u => u.loc[0]).filter(u => u.startsWith(fullDomain));
+    const sitemapResponse = await axios.get(sitemapUrl);
+    const sitemapData = await parseStringPromise(sitemapResponse.data);
+    const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(link => link.startsWith(url));
     const indexData = [];
-
-    for (const url of urls) {
+    
+    for (const pageUrl of urls) {
       try {
-        const pageRes = await axios.get(url);
+        const pageRes = await axios.get(pageUrl);
         const $ = cheerio.load(pageRes.data);
         const title = $('title').text().trim();
         const description = $('meta[name="description"]').attr('content') || '';
         const content = $('main').text().replace(/\s+/g, ' ').trim();
         if (title || description || content) {
           indexData.push({
-            url: url.replace(fullDomain, ''),
+            url: pageUrl.replace(url, ''),
             title,
             description,
             content
           });
         }
       } catch (_) {}
+      const emitter = clients.get(id);
+      if (emitter) emitter.emit('update', { done: indexData.length, total: urls.length });
     }
 
-    const filePath = getCacheFilePath(cleanDomain);
+    const filePath = getCacheFilePath(clean);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, JSON.stringify(indexData, null, 2));
-    res.json({ message: 'Index created', pages: indexData.length });
+    cache.set(clean, indexData);
+
+    res.json({ message: 'Indexing completed' });
   } catch (err) {
-    console.error('Manual indexing error:', err.message);
+    console.error('Manual index error:', err.message);
     res.status(500).json({ error: 'Failed to index domain' });
   }
 });
+
 
 
 module.exports = adminRouter;
