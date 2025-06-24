@@ -184,7 +184,7 @@ app.post('/api/search', verifyDomain, async (req, res) => {
 });
 
 app.post('/api/search-lite', async (req, res) => {
-  let { query, domain, id } = req.body;
+  let { query, domain } = req.body;
   if (!domain) return res.status(400).json({ error: 'Missing domain' });
   if (!domain.startsWith('http')) domain = 'https://' + domain;
   if (!query) return res.status(400).json({ error: 'Missing query' });
@@ -228,47 +228,16 @@ app.post('/api/search-lite', async (req, res) => {
       return searchInIndex(data, query);
     }
 
-    // If no index, begin background generation
-    if (!id) return res.status(404).json({ error: 'No index found and no ID for generation.' });
-    console.log(`📥 No cache found for ${cleanDomain}. Triggering fresh scrape.`);
+    // 🚫 No automatic indexing anymore
+    console.log(`🟡 Index not found for ${cleanDomain} – manual indexing required.`);
+    return res.status(404).json({ error: 'No index found. Please run manual indexing.' });
 
-    const sitemapUrl = domain + '/sitemap.xml';
-    const sitemapResponse = await axios.get(sitemapUrl);
-    const sitemapData = await parseStringPromise(sitemapResponse.data);
-
-    const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(url => url.startsWith(domain));
-    const total = urls.length;
-    let done = 0;
-    const indexData = [];
-
-    for (const url of urls) {
-      try {
-        const pageRes = await axios.get(url);
-        const $ = cheerio.load(pageRes.data);
-        const title = $('title').text().trim();
-        const description = $('meta[name="description"]').attr('content') || '';
-        const content = $('main').text().replace(/\s+/g, ' ').trim();
-        if (title || description || content) {
-          indexData.push({ url: url.replace(domain, ''), title, description, content });
-        }
-      } catch (_) {}
-      done++;
-      const emitter = clients.get(id);
-      if (emitter) emitter.emit('update', { done, total });
-    }
-
-    cache.set(cleanDomain, indexData);
-    const filePathSave = getCacheFilePath(cleanDomain);
-    fs.mkdirSync(path.dirname(filePathSave), { recursive: true });
-    fs.writeFileSync(filePathSave, JSON.stringify(indexData, null, 2));
-    console.log(`✅ Fresh cache built and saved for ${cleanDomain}`);
-
-    return searchInIndex(indexData, query);
   } catch (err) {
     console.error('Lite search error:', err.message);
     res.status(500).json({ error: 'Lite search failed' });
   }
 });
+
 
 // Daily crawl at 3am
 cron.schedule('0 23 * * *', async () => {
