@@ -2,6 +2,12 @@ const express = require('express');
 const app = express(); // ✅ MUST be before any app.use()
 const PORT = process.env.PORT || 3000;
 
+// Ensure flushHeaders exists for older Node versions
+if (!res.flushHeaders && res.flush) {
+  res.flushHeaders = res.flush;
+}
+
+
 const verifyDomain = require('./middleware/verifyDomain');
 
 const cors = require('cors');
@@ -97,21 +103,36 @@ function getCacheFilePath(domain) {
 app.get('/api/progress/:id', (req, res) => {
   const id = req.params.id;
 
+  console.log(`📡 SSE connection opened for ID: ${id}`);
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
+  // 🚨 Required to immediately flush headers for Railway/Node
+  res.flushHeaders?.();
+
+  // ✅ Keep-alive ping every 15s to avoid idle disconnects
+  const keepAlive = setInterval(() => {
+    res.write(`: ping\n\n`);
+  }, 15000);
+
+  // ✅ Store emitter in global map
   const emitter = new EventEmitter();
   clients.set(id, emitter);
 
   emitter.on('update', (data) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
+    console.log(`📤 Sent update to ${id}: ${JSON.stringify(data)}`);
   });
 
   req.on('close', () => {
+    clearInterval(keepAlive);
     clients.delete(id);
+    console.log(`❌ SSE connection closed for ID: ${id}`);
   });
 });
+
 
 const createAdminRouter = require('./adminRoutes');
 app.use('/admin', createAdminRouter(cache, clients));
