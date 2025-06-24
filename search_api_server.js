@@ -46,6 +46,10 @@ app.use(cors({
 // ✅ Then apply other middlewares
 app.use(express.json());
 
+const adminRoutes = require('./adminRoutes');
+app.use('/admin', adminRoutes);
+
+
 
 app.get('/api/lite-allowed', (req, res) => {
   const raw = req.query.domain;
