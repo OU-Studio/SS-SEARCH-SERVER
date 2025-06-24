@@ -31,9 +31,8 @@ app.use((req, res, next) => {
   next();
 });
 
-const clients = new Map(); // track SSE clients by ID
+const clients = new Map();
 
-// SSE progress route
 app.get('/api/progress/:id', (req, res) => {
   const id = req.params.id;
 
@@ -53,7 +52,6 @@ app.get('/api/progress/:id', (req, res) => {
   });
 });
 
-// Search endpoint
 app.post('/api/search', verifyDomain, async (req, res) => {
   const { query, url } = req.body;
   if (!query || !url) {
@@ -72,13 +70,8 @@ app.post('/api/search', verifyDomain, async (req, res) => {
         const matchDescription = item.description.toLowerCase().includes(loweredQuery);
         const matchContent = item.content.toLowerCase().includes(loweredQuery);
 
-        const score =
-          matchTitle ? 0 :
-          matchDescription ? 1 :
-          matchContent ? 2 : 3;
-
+        const score = matchTitle ? 0 : matchDescription ? 1 : matchContent ? 2 : 3;
         if (score === 3) return null;
-
         return { item, score };
       })
       .filter(Boolean)
@@ -131,56 +124,8 @@ app.post('/api/search', verifyDomain, async (req, res) => {
   }
 });
 
-app.post('/api/generate-index', async (req, res) => {
-  let { domain, id } = req.body;
-  if (!domain) return res.status(400).json({ error: 'Missing domain' });
-  if (!domain.startsWith('http')) domain = 'https://' + domain;
-  if (!id) return res.status(400).json({ error: 'Missing request ID' });
-
-  const cleanDomain = domain.replace(/^https?:\/\//, '');
-
-  try {
-    const sitemapUrl = domain + '/sitemap.xml';
-    const sitemapResponse = await axios.get(sitemapUrl);
-    const sitemapData = await parseStringPromise(sitemapResponse.data);
-
-    const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(url => url.startsWith(domain));
-    const total = urls.length;
-    let done = 0;
-    const indexData = [];
-
-    for (const url of urls) {
-      try {
-        const pageRes = await axios.get(url);
-        const $ = cheerio.load(pageRes.data);
-        const title = $('title').text().trim();
-        const description = $('meta[name="description"]').attr('content') || '';
-        const content = $('main').text().replace(/\s+/g, ' ').trim();
-        if (title || description || content) {
-          indexData.push({ url: url.replace(domain, ''), title, description, content });
-        }
-      } catch (_) {}
-      done++;
-      const emitter = clients.get(id);
-      if (emitter) emitter.emit('update', { done, total });
-    }
-
-    cache.set(cleanDomain, indexData);
-    const filePath = getCacheFilePath(cleanDomain);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(indexData, null, 2));
-    console.log(`✅ Cached index in memory for ${cleanDomain}`);
-    console.log(`📝 Cache written to: ${filePath}`);
-
-    res.json({ pages: indexData });
-  } catch (err) {
-    console.error('Error:', err.message);
-    res.status(500).json({ error: 'Failed to generate index' });
-  }
-});
-
 app.post('/api/search-lite', async (req, res) => {
-  let { query, domain } = req.body;
+  let { query, domain, id } = req.body;
   if (!domain) return res.status(400).json({ error: 'Missing domain' });
   if (!domain.startsWith('http')) domain = 'https://' + domain;
   if (!query) return res.status(400).json({ error: 'Missing query' });
@@ -224,7 +169,42 @@ app.post('/api/search-lite', async (req, res) => {
       return searchInIndex(data, query);
     }
 
-    res.status(404).json({ error: 'No index found for domain. Please generate it first.' });
+    // If no index, begin background generation
+    if (!id) return res.status(404).json({ error: 'No index found and no ID for generation.' });
+    console.log(`📥 No cache found for ${cleanDomain}. Triggering fresh scrape.`);
+
+    const sitemapUrl = domain + '/sitemap.xml';
+    const sitemapResponse = await axios.get(sitemapUrl);
+    const sitemapData = await parseStringPromise(sitemapResponse.data);
+
+    const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(url => url.startsWith(domain));
+    const total = urls.length;
+    let done = 0;
+    const indexData = [];
+
+    for (const url of urls) {
+      try {
+        const pageRes = await axios.get(url);
+        const $ = cheerio.load(pageRes.data);
+        const title = $('title').text().trim();
+        const description = $('meta[name="description"]').attr('content') || '';
+        const content = $('main').text().replace(/\s+/g, ' ').trim();
+        if (title || description || content) {
+          indexData.push({ url: url.replace(domain, ''), title, description, content });
+        }
+      } catch (_) {}
+      done++;
+      const emitter = clients.get(id);
+      if (emitter) emitter.emit('update', { done, total });
+    }
+
+    cache.set(cleanDomain, indexData);
+    const filePathSave = getCacheFilePath(cleanDomain);
+    fs.mkdirSync(path.dirname(filePathSave), { recursive: true });
+    fs.writeFileSync(filePathSave, JSON.stringify(indexData, null, 2));
+    console.log(`✅ Fresh cache built and saved for ${cleanDomain}`);
+
+    return searchInIndex(indexData, query);
   } catch (err) {
     console.error('Lite search error:', err.message);
     res.status(500).json({ error: 'Lite search failed' });
