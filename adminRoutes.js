@@ -85,6 +85,7 @@ if (!emitter) {
   console.warn(`⚠️ No SSE client found for ID ${id} after waiting`);
 } else {
   emitter.emit('update', { done: indexData.length, total: urls.length });
+  console.log(`📡 Progress sent: ${indexData.length}/${urls.length}`);
 }
 
       }
