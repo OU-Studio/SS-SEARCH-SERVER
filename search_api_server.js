@@ -164,6 +164,8 @@ app.post('/api/generate-index', async (req, res) => {
     }
 
     cache.set(domain, indexData);
+    console.log(`✅ Index cached in memory for ${domain}`);
+
     const filePath = getCacheFilePath(domain);
 fs.mkdirSync(path.dirname(filePath), { recursive: true });
 fs.writeFileSync(filePath, JSON.stringify(indexData, null, 2));
@@ -217,6 +219,8 @@ app.post('/api/search-lite', async (req, res) => {
       console.log('✅ Loading cached index from file');
       const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
       cache.set(domain, data);
+      console.log(`✅ Index cached in memory for ${domain}`);
+
       return searchInIndex(data, query);
     }
 
