@@ -42,6 +42,9 @@ module.exports = function createAdminRouter(cache, clients) {
   // Manual indexing endpoint
   adminRouter.post('/index', async (req, res) => {
     const { domain, id } = req.body;
+    console.log('📥 Manual index triggered for', domain, 'ID:', id);
+console.log('🧾 Clients map contains:', [...clients.keys()]);
+
     if (!domain || !id) return res.status(400).json({ error: 'Missing domain or ID' });
 
     const clean = domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
@@ -71,8 +74,19 @@ module.exports = function createAdminRouter(cache, clients) {
           }
         } catch (_) {}
 
-        const emitter = clients.get(id);
-        if (emitter) emitter.emit('update', { done: indexData.length, total: urls.length });
+        let emitter = clients.get(id);
+let retries = 0;
+while (!emitter && retries < 20) {
+  await new Promise(r => setTimeout(r, 100)); // wait 100ms
+  emitter = clients.get(id);
+  retries++;
+}
+if (!emitter) {
+  console.warn(`⚠️ No SSE client found for ID ${id} after waiting`);
+} else {
+  emitter.emit('update', { done: indexData.length, total: urls.length });
+}
+
       }
 
       const filePath = getCacheFilePath(clean);
