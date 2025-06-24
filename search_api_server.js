@@ -13,6 +13,23 @@ const fs = require('fs');
 
 const allowedLiteDomains = require('./config/allowedLiteDomains');
 
+const allowedSites = require('./config/allowedDomains');
+
+const allowedOrigins = Object.keys(allowedSites).flatMap(domain => [
+  `https://${domain}`,
+  `https://www.${domain}`
+]);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  }
+}));
+
+
 app.get('/api/lite-allowed', (req, res) => {
   const raw = req.query.domain;
   if (!raw) return res.status(400).json({ allowed: false });
