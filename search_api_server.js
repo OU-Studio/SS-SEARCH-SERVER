@@ -34,13 +34,31 @@ function getAllowedOrigins() {
 // ✅ This must come after `app` is defined
 app.use(cors({
   origin: function (origin, callback) {
-    const allowedOrigins = getAllowedOrigins();
-    if (!origin || allowedOrigins.includes(origin)) {
+    const allowedDomains = getAllowedDomains();
+
+    const allowedOrigins = allowedDomains.flatMap(domain => [
+      `https://${domain}`,
+      `https://www.${domain}`
+    ]);
+
+    // ✅ Add admin panel domains manually:
+    const adminOrigins = [
+      'https://ou.studio',
+      'https://www.ou.studio'
+    ];
+
+    const fullAllowList = [...allowedOrigins, ...adminOrigins];
+
+    if (!origin || fullAllowList.includes(origin)) {
       return callback(null, true);
     }
+
+    console.warn('❌ Blocked by CORS:', origin);
     return callback(new Error('Not allowed by CORS'));
-  }
+  },
+  credentials: true
 }));
+
 
 
 // ✅ Then apply other middlewares
