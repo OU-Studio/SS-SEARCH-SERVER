@@ -11,6 +11,17 @@ const path = require('path');
 const EventEmitter = require('events');
 const fs = require('fs');
 
+const allowedLiteDomains = require('./config/allowedLiteDomains');
+
+app.get('/api/lite-allowed', (req, res) => {
+  const raw = req.query.domain;
+  if (!raw) return res.status(400).json({ allowed: false });
+
+  const clean = raw.replace(/^https?:\/\//, '').replace(/^www\./, '');
+  const isAllowed = allowedLiteDomains.includes(clean);
+  res.json({ allowed: isAllowed });
+});
+
 const cache = new Map();
 
 function getCacheFilePath(domain) {
