@@ -215,27 +215,62 @@ app.post('/api/search-lite', async (req, res) => {
   const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
 
   function searchInIndex(index, q) {
-    const loweredQuery = q.toLowerCase();
-    const results = index
-      .map(item => {
-        const matchTitle = item.title.toLowerCase().includes(loweredQuery);
-        const matchDescription = item.description.toLowerCase().includes(loweredQuery);
-        const matchContent = item.content.toLowerCase().includes(loweredQuery);
-        const score = matchTitle ? 0 : matchDescription ? 1 : matchContent ? 2 : 3;
-        if (score === 3) return null;
-        return { item, score };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.score - b.score)
-      .slice(0, 10)
-      .map(({ item }) => ({
+  const loweredQuery = q.toLowerCase();
+
+  const results = index
+    .map(item => {
+      const matchTitle = item.title.toLowerCase().includes(loweredQuery);
+      const matchDescription = item.description.toLowerCase().includes(loweredQuery);
+      const matchContent = item.content.toLowerCase().includes(loweredQuery);
+      const score = matchTitle ? 0 : matchDescription ? 1 : matchContent ? 2 : 3;
+      if (score === 3) return null;
+      return { item, score };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 10)
+    .map(({ item }) => {
+      let title = item.title;
+      let snippet = '';
+
+      const titleLower = title.toLowerCase();
+      const titleIndex = titleLower.indexOf(loweredQuery);
+      if (titleIndex !== -1) {
+        const before = title.slice(0, titleIndex);
+        const match = title.slice(titleIndex, titleIndex + q.length);
+        const after = title.slice(titleIndex + q.length);
+        title = `${before}<mark>${match}</mark>${after}`;
+      }
+
+      const contentLower = item.content.toLowerCase();
+      const contentIndex = contentLower.indexOf(loweredQuery);
+      if (contentIndex !== -1) {
+        const contextBefore = Math.max(contentIndex - 40, 0);
+        const contextAfter = Math.min(contentIndex + q.length + 40, item.content.length);
+        let excerpt = item.content.slice(contextBefore, contextAfter);
+        const match = item.content.slice(contentIndex, contentIndex + q.length);
+        excerpt = excerpt.replace(match, `<mark>${match}</mark>`);
+        snippet = (contextBefore > 0 ? '...' : '') + excerpt + (contextAfter < item.content.length ? '...' : '');
+      } else {
+        snippet = item.content.slice(0, 160) + '...';
+      }
+
+      let type = 'other';
+      if (item.url.includes('/blog/')) type = 'blog';
+      else if (item.url.includes('/product/')) type = 'product';
+      else if (item.url.includes('/pages/') || item.url.includes('/page/')) type = 'page';
+
+      return {
         url: item.url,
-        title: item.title,
-        snippet: item.content.slice(0, 160) + '...',
-        type: item.url.includes('/blog/') ? 'blog' : item.url.includes('/product/') ? 'product' : 'page'
-      }));
-    res.json({ results });
-  }
+        title,
+        snippet,
+        type
+      };
+    });
+
+  res.json({ results });
+}
+
 
   try {
     if (cache.has(cleanDomain)) {
