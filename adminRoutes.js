@@ -63,9 +63,11 @@ module.exports = function createAdminRouter(cache, clients) {
 
     if (!domain || !id) return res.status(400).json({ error: 'Missing domain or ID' });
 
-    const clean = domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
-    const url = `https://${clean}`;
-    const sitemapUrl = `${url}/sitemap.xml`;
+    const input = domain.trim().replace(/^https?:\/\//, '');
+const clean = input.toLowerCase();
+const url = `https://${clean}`;
+const sitemapUrl = `${url}/sitemap.xml`;
+
 
     try {
       const emitter = await waitForClient(id, clients);
