@@ -77,7 +77,7 @@ console.log('sitemap is ', sitemapUrl)
       const sitemapResponse = await axios.get(sitemapUrl);
       const sitemapData = await parseStringPromise(sitemapResponse.data);
       const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(link => link.startsWith(url));
-      console.log('r is ', sitemapResponse)
+  
       console.log('d is ', sitemapData)
       console.log(`🔍 Sitemap returned ${urls.length} URLs for ${domain}`);
 urls.forEach(u => console.log('🧭', u));
