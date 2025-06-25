@@ -274,7 +274,7 @@ cron.schedule('0 23 * * *', async () => {
 
   for (const domain of allowedDomains) {
     try {
-      const cleanDomain = domain.replace(/^https?:\/\//, '');
+      const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
       const url = `https://${cleanDomain}`;
       const sitemapUrl = `${url}/sitemap.xml`;
       const sitemapResponse = await axios.get(sitemapUrl);
