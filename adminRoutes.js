@@ -74,6 +74,8 @@ module.exports = function createAdminRouter(cache, clients) {
       const sitemapResponse = await axios.get(sitemapUrl);
       const sitemapData = await parseStringPromise(sitemapResponse.data);
       const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(link => link.startsWith(url));
+      console.log(`🔍 Sitemap returned ${urls.length} URLs for ${domain}`);
+urls.forEach(u => console.log('🧭', u));
       const indexData = [];
 
       for (let i = 0; i < urls.length; i++) {
@@ -92,7 +94,9 @@ module.exports = function createAdminRouter(cache, clients) {
               content
             });
           }
-        } catch (_) {}
+        } catch (err) {
+  console.warn(`❌ Failed to scrape ${pageUrl}:`, err.message);
+}
 
         emitter.emit('update', { done: i + 1, total: urls.length });
         console.log(`📡 Progress: ${i + 1}/${urls.length}`);
