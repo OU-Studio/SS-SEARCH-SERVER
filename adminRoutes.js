@@ -64,10 +64,10 @@ module.exports = function createAdminRouter(cache, clients) {
     if (!domain || !id) return res.status(400).json({ error: 'Missing domain or ID' });
 
     const input = domain.trim().replace(/^https?:\/\//, '');
-const clean = input.toLowerCase();
-const url = `https://${clean}`;
-const sitemapUrl = `${url}/sitemap.xml`;
-console.log('sitemap is ', sitemapUrl)
+    const clean = input.toLowerCase();
+    const url = `https://${clean}`;
+    const sitemapUrl = `${url}/sitemap.xml`;
+    console.log('sitemap is ', sitemapUrl)
 
 
     try {
@@ -76,11 +76,15 @@ console.log('sitemap is ', sitemapUrl)
 
       const sitemapResponse = await axios.get(sitemapUrl);
       const sitemapData = await parseStringPromise(sitemapResponse.data);
-      const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(link => link.startsWith(url));
-  
+      const baseUrls = [`https://${clean}`, `https://www.${clean}`];
+const urls = sitemapData.urlset.url
+  .map(entry => entry.loc[0])
+  .filter(link => baseUrls.some(base => link.startsWith(base)));
+
+
       console.log('d is ', sitemapData)
       console.log(`🔍 Sitemap returned ${urls.length} URLs for ${domain}`);
-urls.forEach(u => console.log('🧭', u));
+      urls.forEach(u => console.log('🧭', u));
       const indexData = [];
 
       for (let i = 0; i < urls.length; i++) {
@@ -100,8 +104,8 @@ urls.forEach(u => console.log('🧭', u));
             });
           }
         } catch (err) {
-  console.warn(`❌ Failed to scrape ${pageUrl}:`, err.message);
-}
+          console.warn(`❌ Failed to scrape ${pageUrl}:`, err.message);
+        }
 
         emitter.emit('update', { done: i + 1, total: urls.length });
         console.log(`📡 Progress: ${i + 1}/${urls.length}`);
