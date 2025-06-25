@@ -67,7 +67,7 @@ module.exports = function createAdminRouter(cache, clients) {
     const clean = input.toLowerCase();
     const url = `https://${clean}`;
     const sitemapUrl = `${url}/sitemap.xml`;
-    console.log('sitemap is ', sitemapUrl)
+    console.log('sitemap is ', sitemapUrl) 
 
 
     try {
