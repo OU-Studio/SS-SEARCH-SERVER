@@ -212,7 +212,7 @@ app.post('/api/search-lite', async (req, res) => {
   if (!domain.startsWith('http')) domain = 'https://' + domain;
   if (!query) return res.status(400).json({ error: 'Missing query' });
 
-  const cleanDomain = domain.replace(/^https?:\/\//, '');
+  const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
 
   function searchInIndex(index, q) {
     const loweredQuery = q.toLowerCase();
