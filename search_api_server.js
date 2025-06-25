@@ -244,6 +244,11 @@ app.post('/api/search-lite', async (req, res) => {
     }
 
     const filePath = getCacheFilePath(cleanDomain);
+    console.log('🔍 Clean domain:', cleanDomain);
+console.log('📂 Looking for cached file at:', filePath);
+console.log('📦 Folder contents:', fs.readdirSync(path.join(__dirname, 'data', 'cached-indexes')));
+console.log('📄 File exists:', fs.existsSync(filePath));
+
     if (fs.existsSync(filePath)) {
       console.log('✅ Loading cached index from file');
       const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
