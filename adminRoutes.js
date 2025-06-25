@@ -67,6 +67,7 @@ module.exports = function createAdminRouter(cache, clients) {
 const clean = input.toLowerCase();
 const url = `https://${clean}`;
 const sitemapUrl = `${url}/sitemap.xml`;
+console.log('sitemap is ', sitemapUrl)
 
 
     try {
@@ -76,6 +77,8 @@ const sitemapUrl = `${url}/sitemap.xml`;
       const sitemapResponse = await axios.get(sitemapUrl);
       const sitemapData = await parseStringPromise(sitemapResponse.data);
       const urls = sitemapData.urlset.url.map(entry => entry.loc[0]).filter(link => link.startsWith(url));
+      console.log('r is ', sitemapResponse)
+      console.log('d is ', sitemapData)
       console.log(`🔍 Sitemap returned ${urls.length} URLs for ${domain}`);
 urls.forEach(u => console.log('🧭', u));
       const indexData = [];
