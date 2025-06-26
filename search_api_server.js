@@ -39,14 +39,22 @@ function getAllowedOrigins() {
 // ✅ This must come after `app` is defined
 app.use(cors({
   origin: function (origin, callback) {
-    const allowedDomains = getAllowedDomains();
+    if (!origin) return callback(null, true); // allow non-browser tools
 
+    // Block Squarespace internal domains
+    const isSquarespaceInternal = /\.squarespace\.com$/i.test(new URL(origin).hostname);
+    if (isSquarespaceInternal) {
+      console.warn('🚫 Blocked Squarespace internal domain:', origin);
+      return callback(new Error('CORS policy: Squarespace internal domains are not allowed'), false);
+    }
+
+    const allowedDomains = getAllowedDomains();
     const allowedOrigins = allowedDomains.flatMap(domain => [
       `https://${domain}`,
       `https://www.${domain}`
     ]);
 
-    // ✅ Add admin panel domains manually:
+    // Allow admin UI
     const adminOrigins = [
       'https://ou.studio',
       'https://www.ou.studio'
@@ -54,12 +62,12 @@ app.use(cors({
 
     const fullAllowList = [...allowedOrigins, ...adminOrigins];
 
-    if (!origin || fullAllowList.includes(origin)) {
+    if (fullAllowList.includes(origin)) {
       return callback(null, true);
     }
 
     console.warn('❌ Blocked by CORS:', origin);
-    return callback(new Error('Not allowed by CORS'));
+    return callback(new Error('Not allowed by CORS'), false);
   },
   credentials: true
 }));
